@@ -5,7 +5,7 @@ This repository contains scripts and tools for running and comparing three multi
 ## Directory Structure
 ```
 .
-├── data/
+├── data (not included here)/
 │   ├── CRW-HF/
 │   │   ├── 16S.3/
 │   │   ├── 16S.B.ALL/
