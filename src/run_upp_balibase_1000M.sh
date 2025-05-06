@@ -69,24 +69,34 @@ process_directory() {
                 continue
             fi
             
-            # Set backbone size based on dataset type
-            local backbone_size="100"  # Default for balibase
+            # For 1000M datasets, select backbone sequences
             if [[ "$dataset_type" == "1000M"* ]]; then
-                # For 1000M datasets, use 20% of sequences as backbone
-                total_seqs=$(grep -c "^>" "$fixed_fasta")
-                backbone_size=$((total_seqs / 5))  # 20% of total sequences
-                echo "Setting backbone size to $backbone_size (20% of $total_seqs sequences)"
+                echo "Selecting backbone sequences (10% closest to median length)..."
+                backbone_path="$output_dir/backbone.fasta"
+                python "$SCRIPT_DIR/select_backbone_seqs.py" "$fixed_fasta" "$backbone_path"
+                
+                if [ $? -ne 0 ]; then
+                    echo "Error selecting backbone sequences for $filename"
+                    echo "----------------------------------------"
+                    continue
+                fi
+                
+                # Run UPP with backbone file
+                echo "Running UPP with selected backbone sequences..."
+                run_upp.py -s "$fixed_fasta" -m "$molecule_type" -d "$output_dir" -b "$backbone_path"
+            else
+                # For other datasets, use default backbone selection
+                echo "Running UPP with default backbone selection..."
+                run_upp.py -s "$fixed_fasta" -m "$molecule_type" -d "$output_dir"
             fi
-            
-            # Run UPP with fixed FASTA file and appropriate molecule type
-            echo "Running UPP on fixed FASTA file (molecule type: $molecule_type, backbone size: $backbone_size)..."
-            run_upp.py -s "$fixed_fasta" -m "$molecule_type" -d "$output_dir" -b "$backbone_size"
             
             # Check if the run was successful and output_alignment.fasta exists
             if [ $? -eq 0 ] && [ -f "$output_dir/output_alignment.fasta" ]; then
                 echo "Successfully completed UPP for $filename"
                 # Clean up fixed FASTA file
                 rm "$fixed_fasta"
+                # Clean up backbone file if it exists
+                [ -f "$backbone_path" ] && rm "$backbone_path"
             else
                 echo "Error processing $filename or output file not found"
             fi

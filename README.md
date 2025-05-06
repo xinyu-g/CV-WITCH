@@ -98,18 +98,18 @@ This will create four plots in the `plots/` directory:
 ## Key Parameters
 
 ### UPP Parameters
-- Backbone size: 100 sequences for BAliBASE, 20% of sequences for 1000M datasets
+- Backbone size: 10% of sequences for  BAliBASE and 1000M datasets
 - Molecule type: amino for BAliBASE, dna for 1000M datasets
 
 ### WITCH Parameters
 - Number of HMMs: 10
-- Decomposition size: 50 sequences for BAliBASE, 10% of sequences for 1000M datasets
+- Decomposition size: 10% of sequences for  BAliBASE and 1000M datasets
 - Save weights: enabled
 
 ### CV-WITCH Parameters
 - Number of folds: 5
 - Number of HMMs: 10
-- Weighting scheme: softmax normalization
+- Weighting scheme: Linear min-max
 - Cross-validation scoring: bit score based
 
 ## Output Files

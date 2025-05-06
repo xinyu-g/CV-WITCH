@@ -39,7 +39,7 @@ process_directory() {
             output_dir="$PROJECT_ROOT/witch_output_benchmark/$output_prefix/$dir_path/$filename"
             
             # Check if the directory exists and has completed alignment
-            if [ -f "$output_dir/aligned.fasta" ] && [ -d "$output_dir/tree_decomp/root" ]; then
+            if [ -f "$output_dir/aligned.fasta" ]; then
                 echo "Skipping $filename - output already exists and complete"
                 echo "----------------------------------------"
                 continue
@@ -69,37 +69,45 @@ process_directory() {
                 continue
             fi
             
-            # Set parameters based on dataset type
-            local backbone_size="100"  # Default for balibase
-            local decomp_size="50"     # Default decomposition size
-            
+            # For 1000M datasets, select backbone sequences
             if [[ "$dataset_type" == "1000M"* ]]; then
-                # For 1000M datasets, use 20% as backbone and larger decomposition size
-                total_seqs=$(grep -c "^>" "$fixed_fasta")
-                backbone_size=$((total_seqs / 5))  # 20% of total sequences
-                decomp_size=$((total_seqs / 10))   # 10% of total sequences for decomposition
-                echo "Setting backbone size to $backbone_size (20% of $total_seqs sequences)"
-                echo "Setting decomposition size to $decomp_size"
+                echo "Selecting backbone sequences (10% closest to median length)..."
+                backbone_path="$output_dir/backbone.fasta"
+                python "$SCRIPT_DIR/select_backbone_seqs.py" "$fixed_fasta" "$backbone_path"
+                
+                if [ $? -ne 0 ]; then
+                    echo "Error selecting backbone sequences for $filename"
+                    echo "----------------------------------------"
+                    continue
+                fi
+                
+                # Run WITCH with backbone file
+                echo "Running WITCH with selected backbone sequences..."
+                witch-msa \
+                    -i "$fixed_fasta" \
+                    -d "$output_dir" \
+                    -b "$backbone_path" \
+                    --keeptemp \
+                    --save-weight 1
+            else
+                # For other datasets, use default settings
+                echo "Running WITCH with default settings..."
+                witch-msa \
+                    -i "$fixed_fasta" \
+                    -d "$output_dir" \
+                    --keeptemp \
+                    --save-weight 1
             fi
             
-            # Run WITCH with appropriate parameters
-            echo "Running WITCH (molecule type: $molecule_type, backbone size: $backbone_size, decomp size: $decomp_size)..."
-            witch-msa \
-                -i "$fixed_fasta" \
-                -d "$output_dir" \
-                -k "$decomp_size" \
-                -b "$backbone_size" \
-                --molecule "$molecule_type" \
-                --keeptemp \
-                --save-weight 1
-            
-            # Check if the run was successful
-            if [ $? -eq 0 ] && [ -f "$output_dir/aligned.fasta" ] && [ -d "$output_dir/tree_decomp/root" ]; then
+            # Check if the run was successful and aligned.fasta exists
+            if [ $? -eq 0 ] && [ -f "$output_dir/aligned.fasta" ]; then
                 echo "Successfully completed WITCH for $filename"
                 # Clean up fixed FASTA file
                 rm "$fixed_fasta"
+                # Clean up backbone file if it exists
+                [ -f "$backbone_path" ] && rm "$backbone_path"
             else
-                echo "Error processing $filename or output files not found"
+                echo "Error processing $filename or output file not found"
             fi
             
             echo "----------------------------------------"
